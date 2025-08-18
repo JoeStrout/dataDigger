@@ -10,6 +10,13 @@ textRow = @textUtil.textRow; textCol = @textUtil.textCol
 swatch = chars.inverseOn + chars.buttonCapLeft + " " +
    chars.buttonCapRight + chars.inverseOff
 
+typeColor = {}
+typeColor.string = "#FF8888"
+typeColor.number = "#00AA00"
+typeColor.funcRef = "#FF8800"
+typeColor.list = "#8888FF"
+typeColor.map = "#CC44CC"
+
 //----------------------------------------------------------------------
 // MulticolumnDialog: a Dialog subclass that allows you to explore a tree
 // hierarchy. It's a three-column layout: the middle column (1) always contains
@@ -149,7 +156,7 @@ MulticolumnDialog.drawItems = function(colNum=1, items=null)
 			text.color = self.selTextColor
 			text.backColor = self.selBackColor
 		else
-			text.color = self.listTextColor
+			text.color = item.color // ToDo: make this work for FileDialog too!
 			text.backColor = self.curDirBackColor * hilight + self.listBackColor * (not hilight)
 		end if
 		text.column = self.colLeft[colNum]; print s, ""
@@ -508,6 +515,7 @@ DataDialog.Item = {}
 DataDialog.name = ""
 DataDialog.value = null
 DataDialog.Item.parent = null
+DataDialog.Item.fallbackColor = "#AAAAFF"
 
 DataDialog.Item.Make = function(name, value, parent)
 	noob = new self
@@ -538,6 +546,16 @@ DataDialog.Item.children = function
 	end for
 	return result
 end function	
+
+DataDialog.Item.color = function
+	v = @self.value
+	if @v isa funcRef then return typeColor.funcRef
+	if v isa string then return typeColor.string
+	if v isa number then return typeColor.number
+	if v isa list then return typeColor.list
+	if v isa map then return typeColor.map
+	return self.fallbackColor
+end function
 
 // Implementation of abstract methods for data structure navigation
 DataDialog.getItemsForContainer = function(container)
@@ -626,8 +644,36 @@ DataDialog.drawItemPreview = function
 		return
 	end if
 	v = @item.value
-	if @v isa string or @v isa number or @v isa funcRef then
+	if @v isa funcRef then
 		s = str(@v)
+		if s.endsWith("()") then
+			self.drawPreviewText [s]
+		else
+			// Split after "(", before ")", and after any ", " that's not quoted
+			parts = []
+			i = 0
+			inQuote = false
+			while i < s.len
+				if s[i] == """" then
+					inQuote = not inQuote
+				else if s[i] == "(" or i+1 < s.len and s[i+1] == ")" then
+					parts.push s[:i+1]
+					s = s[i+1:]
+					i = -1
+				else if s[i:i+2] == ", " then
+					parts.push s[:i]
+					s = s[i+2:]
+					i = -1
+				end if
+				i += 1
+			end while
+			parts.push s
+			self.drawPreviewText parts
+		end if
+		return
+	end if
+	if v isa string or v isa number then
+		s = str(v)
 		self.drawPreviewText s.splitLines
 		return
 	end if
