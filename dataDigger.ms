@@ -118,7 +118,8 @@ end function
 
 MulticolumnDialog.drawParentContainer = function
 	// draw parent and its sibling items in column 0
-	self.drawItems 0, self.getItemsForParentContainer
+	parentItems = self.getItemsForParentContainer
+	self.drawItems 0, parentItems
 end function
 
 MulticolumnDialog.stopItemPreview = function
@@ -155,8 +156,8 @@ MulticolumnDialog.drawItems = function(colNum=1, items=null)
 		if selected then
 			text.color = self.selTextColor
 			text.backColor = self.selBackColor
-		else
-			text.color = item.color // ToDo: make this work for FileDialog too!
+		else 
+			if hasItem then text.color = item.color // ToDo: make this work for FileDialog too!
 			text.backColor = self.curDirBackColor * hilight + self.listBackColor * (not hilight)
 		end if
 		text.column = self.colLeft[colNum]; print s, ""
@@ -200,6 +201,7 @@ MulticolumnDialog.drawPreviewText = function(lines)
 				print char(8) * 4 + swatch
 			end if
 		end if
+		text.inverse = false
 	end for	
 end function
 
@@ -543,6 +545,12 @@ DataDialog.Item.children = function
 	for k in indexes
 		childValue = @self.value[@k]
 		result.push DataDialog.Item.Make(k, @childValue, self)
+		if @childValue isa map then
+			name = mapName(@childValue)
+			if name != null and name != @k then
+				result[-1].name += " (" + name + ")"
+			end if
+		end if
 	end for
 	return result
 end function	
@@ -616,6 +624,13 @@ DataDialog.navigateUp = function
 	self.drawItems
 	self.drawItemPreview
 	return true
+end function
+
+MulticolumnDialog.drawParentContainer = function
+	// draw parent and its sibling items in column 0
+	parentItems = self.getItemsForParentContainer
+	self.scrollIntoView 0, parentItems, parentItems.indexOf(self.curNode), 7
+	self.drawItems 0, parentItems
 end function
 
 DataDialog.getItemsForParentContainer = function
@@ -746,7 +761,20 @@ DataDialog.GetItemsForValue = function(mapOrList)
 	return items
 end function
 
+// Main entry point
+dig = function(value)
+	if value == null then value = globals
+	title = mapName(@value)
+	if title == null then title = "(value)"
+	if refEquals(@value, globals) then title = "globals"
+	d = DataDialog.Make(title, @value)
+	return d.show
+end function
 
+// ...and let's make it global for easy use:
+globals.dig = @dig
+_savedGlobals["dig"] = @dig 
+		
 
 if locals == globals then
 	text.backColor = color.clear
